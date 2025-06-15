@@ -1,138 +1,151 @@
-import { useState, useRef, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { setPDFDocument } from '../store/features/pdfSlice';
-
-// Инициализация PDF.js
+import { useRef, useState, useEffect } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.3.31/build/pdf.worker.min.js';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+
+// Инициализация PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 function PDFViewer() {
-    const dispatch = useDispatch();
-    const pdfDoc = useSelector((state) => state.pdf.document);
-    const fileInputRef = useRef(null);
-    const canvasRef = useRef(null);
-    const [isLoading, setIsLoading] = useState(false);
+  const canvasRef = useRef(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [pdfInfo, setPdfInfo] = useState(null);
 
-    // Гарантированная инициализация canvas
-    useEffect(() => {
-        if (!canvasRef.current) {
-            console.error('Canvas не доступен после монтирования компонента');
-            return;
-        }
-        
-        // Временная отрисовка для проверки
-        const ctx = canvasRef.current.getContext('2d');
-        ctx.fillStyle = '#f0f0f0';
-        ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-        ctx.fillStyle = 'red';
-        ctx.font = '16px Arial';
-        ctx.fillText('Загрузите PDF файл', 10, 30);
-    }, []);
+const loadPDF = async () => {
+  try {
+    // 1. Загружаем "сырые" данные
+    const response = await fetch('/test.pdf');
+    const arrayBuffer = await response.arrayBuffer();
+    
+    // 2. Передаем в PDF.js
+    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+    console.log('PDF загружен! Страниц:', pdf.numPages);
+    
+    // 3. Рендерим
+    await renderPage(pdf, 1);
+  } catch (err) {
+    console.error('Ошибка:', err);
+  }
+};
 
-    // Загрузка PDF
-    const handleFileUpload = async (e) => {
-        if (!e.target.files?.[0]) {
-            console.log('Файл не выбран');
-            return;
-        }
+// Проверка перед рендерингом:
+const handleTestPDF = async () => {
+  const response = await fetch('/test.pdf');
+  console.log('Статус:', response.status, 'Тип:', response.headers.get('Content-Type'));
+  
+  // Тест 1: Открыть PDF напрямую
+  const blob = await response.blob();
+  window.open(URL.createObjectURL(blob));
+  
+  // Тест 2: Загрузить через PDF.js
+  loadPDF();
+};
+  const renderPage = async (pdf, pageNumber) => {
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = canvasRef.current;
+    
+    // Подготавливаем canvas
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        const file = e.target.files[0];
-        console.log('Выбран файл:', file.name);
+    await page.render({
+      canvasContext: ctx,
+      viewport: viewport
+    }).promise;
+  };
 
-        if (!canvasRef.current) {
-            console.error('Canvas элемент не найден');
-            return;
-        }
 
-        setIsLoading(true);
-        const fileUrl = URL.createObjectURL(file);
+  const handleFileUpload = async (e) => {
+    if (!e.target.files?.[0]) return;
+    const arrayBuffer = await e.target.files[0].arrayBuffer();
+    loadPDF(arrayBuffer);
+  };
 
-        try {
-            const pdfDocument = await pdfjsLib.getDocument({
-                url: fileUrl,
-                verbosity: 0,
-            }).promise;
-
-            console.log('PDF загружен, страниц:', pdfDocument.numPages);
-            dispatch(setPDFDocument(pdfDocument));
-            await renderFirstPage(pdfDocument);
-        } catch (error) {
-            console.error('Ошибка загрузки:', error);
-        } finally {
-            URL.revokeObjectURL(fileUrl);
-            setIsLoading(false);
-        }
+  // Очистка canvas при размонтировании
+  useEffect(() => {
+    return () => {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
     };
+  }, []);
 
-    // Рендер первой страницы
-    const renderFirstPage = async (pdfDocument) => {
-        try {
-            const page = await pdfDocument.getPage(1);
-            const viewport = page.getViewport({ scale: 1.5 });
-            const canvas = canvasRef.current;
-            
-            // Устанавливаем физические размеры canvas
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            
-            // Очищаем canvas
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Рендерим PDF
-            await page.render({
-                canvasContext: ctx,
-                viewport: viewport
-            }).promise;
-            
-            console.log('Страница отрендерена');
-        } catch (error) {
-            console.error('Ошибка рендеринга:', error);
-        }
-    };
+  return (
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+        <button
+          onClick={handleTestPDF}
+          disabled={isLoading}
+          style={{
+            padding: '10px 15px',
+            backgroundColor: isLoading ? '#ccc' : '#4CAF50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          {isLoading ? 'Загрузка...' : 'Тестовый PDF'}
+        </button>
 
-    return (
-        <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-            <input
-                type="file"
-                ref={fileInputRef}
-                accept=".pdf"
-                onChange={handleFileUpload}
-                style={{ display: 'none' }}
-                key={Date.now()} // Сброс при повторной загрузке
-            />
-            
-            <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading}
-                style={{
-                    padding: '10px 15px',
-                    backgroundColor: isLoading ? '#6c757d' : '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '16px'
-                }}
-            >
-                {isLoading ? 'Загрузка...' : 'Выбрать PDF'}
-            </button>
+        <input
+          type="file"
+          id="pdf-upload"
+          accept=".pdf"
+          onChange={handleFileUpload}
+          disabled={isLoading}
+          style={{ display: 'none' }}
+        />
+        <label
+          htmlFor="pdf-upload"
+          style={{
+            padding: '10px 15px',
+            backgroundColor: isLoading ? '#ccc' : '#2196F3',
+            color: 'white',
+            borderRadius: '4px',
+            cursor: isLoading ? 'not-allowed' : 'pointer',
+            display: 'inline-block'
+          }}
+        >
+          {isLoading ? 'Загрузка...' : 'Выбрать PDF'}
+        </label>
+      </div>
 
-            <div style={{ marginTop: '20px' }}>
-                <canvas
-                    ref={canvasRef}
-                    style={{
-                        border: '1px solid #ddd',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                        maxWidth: '100%',
-                        background: '#f8f9fa'
-                    }}
-                    width="600"
-                    height="800"
-                />
-            </div>
+      {error && (
+        <div style={{ color: 'red', marginBottom: '10px' }}>
+          {error}
         </div>
-    );
+      )}
+
+      {pdfInfo && (
+        <div style={{ marginBottom: '10px' }}>
+          Страница {pdfInfo.currentPage} из {pdfInfo.numPages}
+        </div>
+      )}
+
+      <canvas
+        ref={canvasRef}
+        style={{
+          border: '1px solid #ddd',
+          width: '100%',
+          background: '#f5f5f5',
+          display: isLoading ? 'none' : 'block'
+        }}
+      />
+
+      {isLoading && (
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          Загрузка PDF...
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default PDFViewer;

@@ -5,7 +5,12 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
-    include: ['pdfjs-dist','pdfjs-dist/build/pdf.worker.min.mjs'],
+    include: ['pdfjs-dist','pdfjs-dist/build/pdf.worker.min.mjs', 'pdfjs-dist/build/pdf.mjs'],
   },
-
+    assetsInclude: ['**/pdfjs-dist/build/*.mjs'],
+server: {
+    fs: {
+      strict: false // Разрешаем доступ к node_modules
+    }
+  }
 })
