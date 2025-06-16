@@ -10,7 +10,7 @@ function App() {
   return (
     // <Provider store={store}>
       <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-4">PDF Fragment Extractor</h1>
+        <h1 className="text-2xl font-bold mb-4 text-red-500">PDF Fragment Extractor</h1>
         
         <PDFUploader />
         
