@@ -2,13 +2,10 @@ module.exports = {
   content: [
     "./index.html",
     "./src/**/*.{js,jsx,ts,tsx}",
+    "./src/components/*.{js,jsx}" // Явно указать ваши компоненты
   ],
   theme: {
-    extend: {
-      colors: {
-        primary: "#3B82F6", // Пример кастомизации
-      },
-    },
+    extend: {},
   },
   plugins: [],
 }

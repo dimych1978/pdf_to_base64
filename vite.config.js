@@ -5,4 +5,9 @@ import topLevelAwait from "vite-plugin-top-level-await";
 
 export default defineConfig({
   plugins: [wasm(), topLevelAwait(), react()],
+  css: {
+    postcss: {
+      config: false // Отключаем автоопределение конфига
+    }
+  }
 });
