@@ -3,13 +3,13 @@ import { createSlice } from '@reduxjs/toolkit';
 const pdfSlice = createSlice({
   name: 'pdf',
   initialState: {
-    data: null,
+    pdfBase64: null, // храним base64 строку
     selection: null,
     fragmentBase64: null,
   },
   reducers: {
     setPdfData: (state, action) => {
-      state.data = action.payload;
+      state.pdfBase64 = action.payload;
     },
     setSelection: (state, action) => {
       state.selection = action.payload;

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import * as pdfjs from 'pdfjs-dist/build/pdf';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
-import { useSelector, useDispatch } from 'react-redux';
+import { useDispatch } from 'react-redux';
 
 import { setSelection, setFragmentBase64, clearSelection } from '../store/features/pdfSlice';
 
@@ -16,7 +16,6 @@ const PDFRenderer = ({ base64 }) => {
   const [pdfPage, setPdfPage] = useState(null);
   const [viewport, setViewport] = useState(null);
   const dispatch = useDispatch();
-  const selection = useSelector(state => state.pdf.selection);
 
   useEffect(() => {
     if (!base64) return;
@@ -88,7 +87,7 @@ const PDFRenderer = ({ base64 }) => {
 
   // Обработка выделения области
   const handleAreaSelected = (area) => {
-    if (!pdfPage || !viewport) return;
+    if (!pdfPage || !viewport || !canvasRef.current) return;
     
     dispatch(setSelection(area));
     
