@@ -1,7 +1,7 @@
 import { useDispatch } from 'react-redux';
 import * as pdfjsLib from 'pdfjs-dist';
 
-import { setPDFFile } from '../features/pdfSlice';
+import { setPdfData } from '../store/features/pdfSlice';
 
 const  PDFUploader = () => {
   const dispatch = useDispatch();
@@ -10,7 +10,7 @@ const  PDFUploader = () => {
     const file = e.target.files[0];
     if (!file) return;
     
-    dispatch(setPDFFile(file));
+    dispatch(setPdfData(file));
     
     try {
       const loadingTask = pdfjsLib.getDocument(URL.createObjectURL(file));

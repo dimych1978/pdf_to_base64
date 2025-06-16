@@ -1,25 +1,145 @@
-import { useEffect, useRef } from "react";
+import { useRef, useEffect, useState } from 'react';
+import * as pdfjs from 'pdfjs-dist/build/pdf';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+import { useSelector, useDispatch } from 'react-redux';
 
-function PDFRenderer({ pdfDoc }) {
+import { setSelection, setFragmentBase64, clearSelection } from '../store/features/pdfSlice';
+
+import AreaSelector from './AreaSelector';
+
+pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
+const PDFRenderer = ({ base64 }) => {
   const canvasRef = useRef(null);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [pdfPage, setPdfPage] = useState(null);
+  const [viewport, setViewport] = useState(null);
+  const dispatch = useDispatch();
+  const selection = useSelector(state => state.pdf.selection);
 
   useEffect(() => {
-    if (!pdfDoc) return;
-    const renderPage = async () => {
-      const page = await pdfDoc.getPage(1);
-      const viewport = page.getViewport({ scale: 1.5 });
-      const canvas = canvasRef.current;
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      await page.render({ 
-        canvasContext: canvas.getContext('2d'), 
-        viewport 
-      }).promise;
+    if (!base64) return;
+    
+    const cleanup = () => {
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+      }
+      if (pdfDocRef.current) {
+        pdfDocRef.current.destroy();
+      }
     };
-    renderPage();
-  }, [pdfDoc]);
+    
+    const renderTaskRef = { current: null };
+    const pdfDocRef = { current: null };
+    
+    const loadPdf = async () => {
+      setIsLoading(true);
+      dispatch(clearSelection());
+      
+      try {
+        cleanup();
+        
+        const base64Data = base64.split(',')[1] || base64;
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
 
-  return <canvas ref={canvasRef} style={{ position: 'absolute', zIndex: 1 }} />;
-}
+        const loadingTask = pdfjs.getDocument({ data: bytes });
+        const pdf = await loadingTask.promise;
+        pdfDocRef.current = pdf;
 
-export default PDFRenderer
+        const page = await pdf.getPage(1);
+        const vp = page.getViewport({ scale: 1.5 });
+        setViewport(vp);
+        setPdfPage(page);
+        
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        
+        canvas.height = vp.height;
+        canvas.width = vp.width;
+        
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        
+        renderTaskRef.current = page.render({
+          canvasContext: context,
+          viewport: vp,
+        });
+        
+        await renderTaskRef.current.promise;
+        setError(null);
+      } catch (err) {
+        if (err.name !== 'RenderingCancelledException') {
+          console.error('PDF rendering error:', err);
+          setError('Ошибка загрузки PDF');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadPdf();
+    return cleanup;
+  }, [base64, dispatch]);
+
+  // Обработка выделения области
+  const handleAreaSelected = (area) => {
+    if (!pdfPage || !viewport) return;
+    
+    dispatch(setSelection(area));
+    
+    // Создаем canvas для фрагмента
+    const fragmentCanvas = document.createElement('canvas');
+    fragmentCanvas.width = area.width;
+    fragmentCanvas.height = area.height;
+    
+    const ctx = fragmentCanvas.getContext('2d');
+    ctx.drawImage(
+      canvasRef.current,
+      area.x,
+      area.y,
+      area.width,
+      area.height,
+      0,
+      0,
+      area.width,
+      area.height
+    );
+    
+    // Преобразуем в base64
+    const base64 = fragmentCanvas.toDataURL('image/png');
+    dispatch(setFragmentBase64(base64));
+  };
+
+  return (
+    <div className="pdf-renderer relative">
+      {isLoading && (
+        <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center">
+          <div className="text-blue-500">Загрузка PDF...</div>
+        </div>
+      )}
+      
+      {error && <div className="text-red-500 mb-2">{error}</div>}
+      
+      <div className="relative">
+        <canvas 
+          ref={canvasRef} 
+          className="border border-gray-300 w-full"
+        />
+        
+        {pdfPage && (
+          <AreaSelector 
+            onSelectArea={handleAreaSelected} 
+            disabled={isLoading}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default PDFRenderer;
