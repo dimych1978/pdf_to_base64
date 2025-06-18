@@ -1,18 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
 
-const AreaSelector = ({ onSelectArea, disabled }) => {
+const AreaSelector = ({ onSelectArea, disabled, canvasRef}) => {
+  // const canvasRef = useRef(null)
   const containerRef = useRef(null);
   const [startPoint, setStartPoint] = useState(null);
   const [endPoint, setEndPoint] = useState(null);
   const [isSelecting, setIsSelecting] = useState(false);
 
+  const getAdjustedCoordinates = (clientX, clientY) => {
+    const rect = containerRef.current.getBoundingClientRect();
+    const scaleX = canvasRef.current.width / rect.width;
+    const scaleY = canvasRef.current.height / rect.height;
+    
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  };
+
   const handleMouseDown = (e) => {
     if (disabled) return;
     
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
+    const { x, y } = getAdjustedCoordinates(e.clientX, e.clientY);
     setStartPoint({ x, y });
     setEndPoint({ x, y });
     setIsSelecting(true);
@@ -21,73 +30,54 @@ const AreaSelector = ({ onSelectArea, disabled }) => {
   const handleMouseMove = (e) => {
     if (!isSelecting) return;
     
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
+    const { x, y } = getAdjustedCoordinates(e.clientX, e.clientY);
     setEndPoint({ x, y });
   };
 
   const handleMouseUp = () => {
-    if (!isSelecting) return;
+    if (!isSelecting || !startPoint || !endPoint) return;
     
-    setIsSelecting(false);
+    const x = Math.min(startPoint.x, endPoint.x);
+    const y = Math.min(startPoint.y, endPoint.y);
+    const width = Math.abs(endPoint.x - startPoint.x);
+    const height = Math.abs(endPoint.y - startPoint.y);
     
-    if (startPoint && endPoint) {
-      const x = Math.min(startPoint.x, endPoint.x);
-      const y = Math.min(startPoint.y, endPoint.y);
-      const width = Math.abs(endPoint.x - startPoint.x);
-      const height = Math.abs(endPoint.y - startPoint.y);
-      
-      if (width > 5 && height > 5) {
-        onSelectArea({ x, y, width, height });
-      }
+    console.log('Final selection (canvas coords):', { x, y, width, height });
+    
+    if (width > 10 && height > 10) {
+      onSelectArea({ 
+        x, 
+        y, 
+        width, 
+        height,
+        pageX: Math.min(startPoint.x, endPoint.x),
+        pageY: Math.min(startPoint.y, endPoint.y)
+      });
+    } else {
+      console.warn('Selection too small:', { width, height });
     }
     
+    setIsSelecting(false);
     setStartPoint(null);
     setEndPoint(null);
   };
 
   useEffect(() => {
     const handleMouseUpGlobal = () => {
-      if (isSelecting) {
-        handleMouseUp();
-      }
+      if (isSelecting) handleMouseUp();
     };
 
     window.addEventListener('mouseup', handleMouseUpGlobal);
-    return () => {
-      window.removeEventListener('mouseup', handleMouseUpGlobal);
-    };
-  }, [isSelecting]);
-
-  // Вычисляем координаты прямоугольника выделения
-  const selectionRect = startPoint && endPoint && {
-    x: Math.min(startPoint.x, endPoint.x),
-    y: Math.min(startPoint.y, endPoint.y),
-    width: Math.abs(endPoint.x - startPoint.x),
-    height: Math.abs(endPoint.y - startPoint.y)
-  };
+    return () => window.removeEventListener('mouseup', handleMouseUpGlobal);
+  }, [isSelecting, startPoint, endPoint]);
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className={`absolute inset-0 ${disabled ? 'cursor-not-allowed' : 'cursor-crosshair'}`}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
-    >
-      {isSelecting && selectionRect && (
-        <div 
-          className="border-2 border-blue-500 bg-blue-500 bg-opacity-20 absolute"
-          style={{
-            left: selectionRect.x,
-            top: selectionRect.y,
-            width: selectionRect.width,
-            height: selectionRect.height
-          }}
-        />
-      )}
-    </div>
+    />
   );
 };
 

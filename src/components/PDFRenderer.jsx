@@ -3,7 +3,7 @@ import * as pdfjs from 'pdfjs-dist/build/pdf';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { useDispatch } from 'react-redux';
 
-import { setSelection, setFragmentBase64, clearSelection } from '../store/features/pdfSlice';
+import { setSelection, setFragment, clearSelection } from '../store/features/pdfSlice';
 
 import AreaSelector from './AreaSelector';
 
@@ -116,35 +116,71 @@ const PDFRenderer = ({ base64 }) => {
     };
 
     // Обработка выделения области
-    const handleAreaSelected = (area) => {
-        if (!pdfPage || !viewport || !canvasRef.current) return;
+const handleAreaSelected = async (area) => {
+  console.log('Processing area:', area);
+  
+  if (!canvasRef.current || area.width <= 0 || area.height <= 0) {
+    console.error('Invalid selection parameters');
+    return;
+  }
 
-        dispatch(setSelection(area));
+  try {
+    // Создаем временный canvas для фрагмента
+    const fragmentCanvas = document.createElement('canvas');
+    fragmentCanvas.width = Math.floor(area.width);
+    fragmentCanvas.height = Math.floor(area.height);
+    
+    const ctx = fragmentCanvas.getContext('2d');
+    
+    // Очищаем фон (белый вместо прозрачного)
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, fragmentCanvas.width, fragmentCanvas.height);
+    
+    // Копируем выделенную область
+    ctx.drawImage(
+      canvasRef.current,
+      Math.floor(area.x),
+      Math.floor(area.y),
+      Math.floor(area.width),
+      Math.floor(area.height),
+      0,
+      0,
+      Math.floor(area.width),
+      Math.floor(area.height)
+    );
+    
+    // Оптимизация: сжимаем изображение до 80% качества
+    const base64 = fragmentCanvas.toDataURL('image/jpeg', 0.8);
+     const isValid = (
+    fragmentCanvas.width > 0 &&
+    fragmentCanvas.height > 0 &&
+    base64.length > 1000 // Минимальный размер base64
+  );
 
-        // Создаем canvas для фрагмента
-        const fragmentCanvas = document.createElement('canvas');
-        fragmentCanvas.width = area.width;
-        fragmentCanvas.height = area.height;
-
-        const ctx = fragmentCanvas.getContext('2d');
-        ctx.drawImage(
-            canvasRef.current,
-            area.x,
-            area.y,
-            area.width,
-            area.height,
-            0,
-            0,
-            area.width,
-            area.height
-        );
-
-        // Преобразуем в base64
-        const base64 = fragmentCanvas.toDataURL('image/png');
-        dispatch(setFragmentBase64(base64));
-    };
-
-    const handleMouseMove = (e) => {
+  if (isValid) {
+    dispatch(setFragment({
+      base64,
+      coordinates: area,
+      dimensions: {
+        width: fragmentCanvas.width,
+        height: fragmentCanvas.height
+      }
+    }));
+  } else {
+    console.error('Invalid fragment data:', {
+      width: fragmentCanvas.width,
+      height: fragmentCanvas.height,
+      base64Length: base64.length
+    });
+    dispatch(setFragmentError('Не удалось создать фрагмент'));
+  }
+    
+    
+  } catch (error) {
+    console.error('Error creating fragment:', error);
+  }
+};
+const handleMouseMove = (e) => {
       console.log(canvasRef.current)
 const canvas = canvasRef.current;
 const rect = canvas.getBoundingClientRect();
@@ -173,8 +209,21 @@ const canvas = canvasRef.current[pageIndex];
             <div className="relative">
                 <canvas ref={canvasRef} onMouseMove={handleMouseMove} className="border border-gray-300 w-full" />
 
-                {pdfPage && <AreaSelector onSelectArea={handleAreaSelected} disabled={isLoading} />}
+                {pdfPage && <AreaSelector onSelectArea={handleAreaSelected} disabled={isLoading} canvasRef={canvasRef} />}
             </div>
+             <button 
+      onClick={() => {
+        const testArea = { x: 50, y: 50, width: 100, height: 100 };
+        console.log('Manual dispatch with:', testArea);
+        dispatch(setFragment({
+          base64: 'data:image/png;base64,iVBORw0...',
+          coordinates: testArea
+        }));
+      }}
+      className="fixed bottom-4 right-4 bg-green-500 text-white p-2 rounded"
+    >
+      Тест Redux
+    </button>
         </div>
     );
 };

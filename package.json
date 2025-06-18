@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@canvasjs/charts": "^3.12.18",
-    "canvasjs-react-charts": "^1.0.5",
     "pdfjs-dist": "5.3.31",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

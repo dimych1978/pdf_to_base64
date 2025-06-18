@@ -1,34 +1,46 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 const pdfSlice = createSlice({
-  name: 'pdf',
-  initialState: {
-    pdfBase64: null, // храним base64 строку
-    selection: null,
-    fragmentBase64: null,
-  },
-  reducers: {
-    setPdfData: (state, action) => {
-      state.pdfBase64 = action.payload;
+    name: 'pdf',
+    initialState: {
+        pdfBase64: null,
+        selection: null,
+        fragmentBase64: null,
+        currentFragment: null,
     },
-    setSelection: (state, action) => {
-      state.selection = action.payload;
+    reducers: {
+        setPdfData: (state, action) => {
+            state.pdfBase64 = action.payload;
+        },
+        setSelection: (state, action) => {
+            state.selection = action.payload;
+        },
+        setFragment(state, action) {
+            const { base64, coordinates, dimensions } = action.payload;
+
+            if (!base64 || !coordinates || !dimensions) {
+                console.error('Invalid payload for setFragment:', action.payload);
+                return;
+            }
+
+            state.currentFragment = {
+                base64: base64.startsWith('data:image/') ? base64 : null,
+                coordinates,
+                dimensions,
+                createdAt: new Date().toISOString(),
+            };
+        },
+        setFragmentBase64: (state, action) => {
+            state.fragmentBase64 = action.payload;
+        },
+        clearSelection: (state) => {
+            state.selection = null;
+            state.fragmentBase64 = null;
+        },
     },
-    setFragmentBase64: (state, action) => {
-      state.fragmentBase64 = action.payload;
-    },
-    clearSelection: (state) => {
-      state.selection = null;
-      state.fragmentBase64 = null;
-    }
-  }
 });
 
-export const { 
-  setPdfData, 
-  setSelection, 
-  setFragmentBase64, 
-  clearSelection 
-} = pdfSlice.actions;
+export const { setPdfData, setSelection, setFragment, setFragmentBase64, clearSelection } =
+    pdfSlice.actions;
 
 export default pdfSlice.reducer;
