@@ -44,25 +44,19 @@ const PDFRenderer = ({ base64 }) => {
     useEffect(() => {
         if (!base64) return;
 
-        const timer = setTimeout(() => {
-            loadPdf();
-        }, 50);
+        const handleLoadPdf = async() => {
+                  await loadPdf();
+
+        }
+        // const timer = setTimeout(() => {
+        // }, 50);
+        handleLoadPdf();
+        console.log('loadPdf()')
         return () => {
-            clearTimeout(timer);
+            // clearTimeout(timer);
             cleanup();
         };
     }, [base64]);
-    // const cleanup = () => {
-    //   if (renderTaskRef.current) {
-    //     renderTaskRef.current.cancel();
-    //   }
-    //   if (pdfDocRef.current) {
-    //     pdfDocRef.current.destroy();
-    //   }
-    // };
-
-    // const renderTaskRef = { current: null };
-    // const pdfDocRef = { current: null };
 
     const loadPdf = async () => {
         if (!isMountedRef.current) return;
@@ -105,7 +99,7 @@ const PDFRenderer = ({ base64 }) => {
                 viewport: vp,
             });
 
-            await renderTaskRef.current.promise;
+            // await renderTaskRef.current.promise;
             if (isMountedRef.current) {
                 setError(null);
             }
@@ -150,6 +144,22 @@ const PDFRenderer = ({ base64 }) => {
         dispatch(setFragmentBase64(base64));
     };
 
+    const handleMouseMove = (e) => {
+      console.log(canvasRef.current)
+const canvas = canvasRef.current;
+const rect = canvas.getBoundingClientRect();
+console.log(rect)
+    }
+    const handleMouseDown = (e, pageIndex) => {
+const canvas = canvasRef.current[pageIndex];
+
+    }
+    const handleMouseUp = (e, pageIndex) => {
+const canvas = canvasRef.current[pageIndex];
+
+    }
+
+
     return (
         <div className="pdf-renderer relative">
             {isLoading && (
@@ -161,7 +171,7 @@ const PDFRenderer = ({ base64 }) => {
             {error && <div className="text-red-500 mb-2">{error}</div>}
 
             <div className="relative">
-                <canvas ref={canvasRef} className="border border-gray-300 w-full" />
+                <canvas ref={canvasRef} onMouseMove={handleMouseMove} className="border border-gray-300 w-full" />
 
                 {pdfPage && <AreaSelector onSelectArea={handleAreaSelected} disabled={isLoading} />}
             </div>
