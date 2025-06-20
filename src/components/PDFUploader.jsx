@@ -1,27 +1,38 @@
+// PDFUploader.jsx
+import { useState } from 'react';
 import { useDispatch } from 'react-redux';
-
+import { fetchPdfByFileName } from '../api/api';
 import { setPdfData } from '../store/features/pdfSlice';
 
 const PDFUploader = () => {
   const dispatch = useDispatch();
+  const [fileName, setFileName] = useState('');
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    try {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        // Сохраняем base64 строку вместо файла
-        dispatch(setPdfData(e.target.result));
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error("File reading error:", error);
+  const handleLoadFromApi = async () => {
+    if (!fileName) return;
+    const pdfData = await fetchPdfByFileName(fileName);
+    if (pdfData) {
+      dispatch(setPdfData(pdfData));
     }
   };
 
-  return <input type="file" accept=".pdf" onChange={handleFileChange} />;
-}
+  return (
+    <div className="flex gap-2 mb-4">
+      <input
+        type="text"
+        value={fileName}
+        onChange={(e) => setFileName(e.target.value)}
+        placeholder="Введите имя файла"
+        className="border p-2 rounded"
+      />
+      <button 
+        onClick={handleLoadFromApi}
+        className="bg-blue-500 text-white px-4 py-2 rounded"
+      >
+        Загрузить PDF
+      </button>
+    </div>
+  );
+};
 
 export default PDFUploader;

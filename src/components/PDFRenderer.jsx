@@ -1,31 +1,32 @@
+// PDFRenderer.jsx
 import { useRef, useEffect, useState } from 'react';
 import * as pdfjs from 'pdfjs-dist/build/pdf';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { useDispatch } from 'react-redux';
 
-import { setSelection, setFragment, clearSelection } from '../store/features/pdfSlice';
-
+import { setFragment, clearSelection } from '../store/features/pdfSlice';
 import AreaSelector from './AreaSelector';
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 const PDFRenderer = ({ base64 }) => {
-    const canvasRef = useRef(null);
+    const canvasRefs = useRef([]);
     const [error, setError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [pdfPage, setPdfPage] = useState(null);
-    const [viewport, setViewport] = useState(null);
+    const [pdfPages, setPdfPages] = useState([]);
     const isMountedRef = useRef(true);
     const dispatch = useDispatch();
 
-    const renderTaskRef = { current: null };
-    const pdfDocRef = { current: null };
+    const renderTasksRef = useRef([]);
+    const pdfDocRef = useRef(null);
 
     const cleanup = () => {
-        if (renderTaskRef.current) {
-            renderTaskRef.current.cancel();
-            renderTaskRef.current = null;
-        }
+        // Отменяем все задачи рендеринга
+        renderTasksRef.current.forEach(task => {
+            if (task && !task.cancelled) task.cancel();
+        });
+        renderTasksRef.current = [];
+        
         if (pdfDocRef.current) {
             pdfDocRef.current.destroy();
             pdfDocRef.current = null;
@@ -34,7 +35,6 @@ const PDFRenderer = ({ base64 }) => {
 
     useEffect(() => {
         isMountedRef.current = true;
-
         return () => {
             isMountedRef.current = false;
             cleanup();
@@ -44,17 +44,14 @@ const PDFRenderer = ({ base64 }) => {
     useEffect(() => {
         if (!base64) return;
 
-        const handleLoadPdf = async() => {
-                  await loadPdf();
-
-        }
-        // const timer = setTimeout(() => {
-        // }, 50);
+        const handleLoadPdf = async () => {
+            await loadPdf();
+        };
         handleLoadPdf();
-        console.log('loadPdf()')
+
         return () => {
-            // clearTimeout(timer);
             cleanup();
+            canvasRefs.current = [];
         };
     }, [base64]);
 
@@ -78,28 +75,24 @@ const PDFRenderer = ({ base64 }) => {
             const pdf = await loadingTask.promise;
             pdfDocRef.current = pdf;
 
-            const page = await pdf.getPage(1);
-            const vp = page.getViewport({ scale: 1.5 });
-            setViewport(vp);
-            setPdfPage(page);
+            const numPages = pdf.numPages;
+            const pages = [];
+            for (let i = 1; i <= numPages; i++) {
+                const page = await pdf.getPage(i);
+                const vp = page.getViewport({ scale: 1.5 });
+                pages.push({ page, viewport: vp });
+            }
 
-            const canvas = canvasRef.current;
-            const context = canvas.getContext('2d');
+            setPdfPages(pages);
+            canvasRefs.current = new Array(pages.length).fill(null);
 
-            canvas.height = vp.height;
-            canvas.width = vp.width;
-
-            context.clearRect(0, 0, canvas.width, canvas.height);
-
-            context.save();
-            context.scale(1, 1);
-
-            renderTaskRef.current = page.render({
-                canvasContext: context,
-                viewport: vp,
-            });
-
-            // await renderTaskRef.current.promise;
+            // Рендерим страницы после обновления DOM
+            setTimeout(() => {
+                pages.forEach((pageObj, index) => {
+                    renderPage(pageObj, index);
+                });
+            }, 50);
+            
             if (isMountedRef.current) {
                 setError(null);
             }
@@ -115,86 +108,94 @@ const PDFRenderer = ({ base64 }) => {
         }
     };
 
+    const renderPage = async (pageObj, index) => {
+        const canvas = canvasRefs.current[index];
+        if (!canvas) return;
+
+        const context = canvas.getContext('2d');
+        canvas.height = pageObj.viewport.height;
+        canvas.width = pageObj.viewport.width;
+
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        try {
+            const renderTask = pageObj.page.render({
+                canvasContext: context,
+                viewport: pageObj.viewport,
+            });
+            
+            renderTasksRef.current.push(renderTask);
+            await renderTask.promise;
+        } catch (err) {
+            if (err.name !== 'RenderingCancelledException') {
+                console.error(`Error rendering page ${index + 1}:`, err);
+            }
+        }
+    };
+
     // Обработка выделения области
-const handleAreaSelected = async (area) => {
-  console.log('Processing area:', area);
-  
-  if (!canvasRef.current || area.width <= 0 || area.height <= 0) {
-    console.error('Invalid selection parameters');
-    return;
-  }
+    const handleAreaSelected = async (area, pageIndex) => {
+        console.log('Processing area:', area);
+        const canvas = canvasRefs.current[pageIndex];
+        if (!canvas || area.width <= 0 || area.height <= 0) {
+            console.error('Invalid selection parameters');
+            return;
+        }
 
-  try {
-    // Создаем временный canvas для фрагмента
-    const fragmentCanvas = document.createElement('canvas');
-    fragmentCanvas.width = Math.floor(area.width);
-    fragmentCanvas.height = Math.floor(area.height);
-    
-    const ctx = fragmentCanvas.getContext('2d');
-    
-    // Очищаем фон (белый вместо прозрачного)
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, fragmentCanvas.width, fragmentCanvas.height);
-    
-    // Копируем выделенную область
-    ctx.drawImage(
-      canvasRef.current,
-      Math.floor(area.x),
-      Math.floor(area.y),
-      Math.floor(area.width),
-      Math.floor(area.height),
-      0,
-      0,
-      Math.floor(area.width),
-      Math.floor(area.height)
-    );
-    
-    // Оптимизация: сжимаем изображение до 80% качества
-    const base64 = fragmentCanvas.toDataURL('image/jpeg', 0.8);
-     const isValid = (
-    fragmentCanvas.width > 0 &&
-    fragmentCanvas.height > 0 &&
-    base64.length > 1000 // Минимальный размер base64
-  );
+        try {
+            // Создаем временный canvas для фрагмента
+            const fragmentCanvas = document.createElement('canvas');
+            fragmentCanvas.width = Math.floor(area.width);
+            fragmentCanvas.height = Math.floor(area.height);
 
-  if (isValid) {
-    dispatch(setFragment({
-      base64,
-      coordinates: area,
-      dimensions: {
-        width: fragmentCanvas.width,
-        height: fragmentCanvas.height
-      }
-    }));
-  } else {
-    console.error('Invalid fragment data:', {
-      width: fragmentCanvas.width,
-      height: fragmentCanvas.height,
-      base64Length: base64.length
-    });
-    dispatch(setFragmentError('Не удалось создать фрагмент'));
-  }
-    
-    
-  } catch (error) {
-    console.error('Error creating fragment:', error);
-  }
-};
-const handleMouseMove = (e) => {
-      console.log(canvasRef.current)
-const canvas = canvasRef.current;
-const rect = canvas.getBoundingClientRect();
-console.log(rect)
-    }
-    const handleMouseDown = (e, pageIndex) => {
-const canvas = canvasRef.current[pageIndex];
+            const ctx = fragmentCanvas.getContext('2d');
 
-    }
-    const handleMouseUp = (e, pageIndex) => {
-const canvas = canvasRef.current[pageIndex];
+            // Очищаем фон (белый вместо прозрачного)
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, fragmentCanvas.width, fragmentCanvas.height);
 
-    }
+            // Копируем выделенную область
+            ctx.drawImage(
+                canvas,
+                Math.floor(area.x),
+                Math.floor(area.y),
+                Math.floor(area.width),
+                Math.floor(area.height),
+                0,
+                0,
+                Math.floor(area.width),
+                Math.floor(area.height)
+            );
 
+            // Оптимизация: сжимаем изображение до 80% качества
+            const base64 = fragmentCanvas.toDataURL('image/jpeg', 0.8);
+            const isValid =
+                fragmentCanvas.width > 0 && 
+                fragmentCanvas.height > 0 && 
+                base64.length > 1000; // Минимальный размер base64
+
+            if (isValid) {
+                dispatch(
+                    setFragment({
+                        base64,
+                        coordinates: area,
+                        dimensions: {
+                            width: fragmentCanvas.width,
+                            height: fragmentCanvas.height,
+                        },
+                    })
+                );
+            } else {
+                console.error('Invalid fragment data:', {
+                    width: fragmentCanvas.width,
+                    height: fragmentCanvas.height,
+                    base64Length: base64.length,
+                });
+            }
+        } catch (error) {
+            console.error('Error creating fragment:', error);
+        }
+    };
 
     return (
         <div className="pdf-renderer relative">
@@ -206,24 +207,22 @@ const canvas = canvasRef.current[pageIndex];
 
             {error && <div className="text-red-500 mb-2">{error}</div>}
 
-            <div className="relative">
-                <canvas ref={canvasRef} onMouseMove={handleMouseMove} className="border border-gray-300 w-full" />
-
-                {pdfPage && <AreaSelector onSelectArea={handleAreaSelected} disabled={isLoading} canvasRef={canvasRef} />}
+            <div className="relative overflow-y-auto max-h-[80vh]">
+                {pdfPages.map((page, index) => (
+                    <div key={index} className="relative mb-4">
+                        <canvas
+                            ref={(el) => (canvasRefs.current[index] = el)}
+                            className="border border-gray-300 w-full"
+                        />
+                        <AreaSelector
+                            onSelectArea={(area) => handleAreaSelected(area, index)}
+                            disabled={isLoading}
+                            canvasRef={canvasRefs}
+                            pageIndex={index}
+                        />
+                    </div>
+                ))}
             </div>
-             <button 
-      onClick={() => {
-        const testArea = { x: 50, y: 50, width: 100, height: 100 };
-        console.log('Manual dispatch with:', testArea);
-        dispatch(setFragment({
-          base64: 'data:image/png;base64,iVBORw0...',
-          coordinates: testArea
-        }));
-      }}
-      className="fixed bottom-4 right-4 bg-green-500 text-white p-2 rounded"
-    >
-      Тест Redux
-    </button>
         </div>
     );
 };

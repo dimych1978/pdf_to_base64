@@ -7,10 +7,13 @@ const pdfSlice = createSlice({
         selection: null,
         fragmentBase64: null,
         currentFragment: null,
+        confirmedFragment: null,
     },
     reducers: {
         setPdfData: (state, action) => {
             state.pdfBase64 = action.payload;
+            state.currentFragment = null;
+            state.confirmedFragment = null;
         },
         setSelection: (state, action) => {
             state.selection = action.payload;
@@ -30,17 +33,23 @@ const pdfSlice = createSlice({
                 createdAt: new Date().toISOString(),
             };
         },
+         saveFragment: (state) => {
+            if (state.currentFragment) {
+                state.confirmedFragment = state.currentFragment;
+            }
+        },
         setFragmentBase64: (state, action) => {
             state.fragmentBase64 = action.payload;
         },
         clearSelection: (state) => {
             state.selection = null;
             state.fragmentBase64 = null;
+            state.currentFragment = null;
         },
     },
 });
 
-export const { setPdfData, setSelection, setFragment, setFragmentBase64, clearSelection } =
+export const { setPdfData, setSelection, setFragment, saveFragment, setFragmentBase64, clearSelection } =
     pdfSlice.actions;
 
 export default pdfSlice.reducer;
