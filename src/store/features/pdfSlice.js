@@ -33,7 +33,7 @@ const pdfSlice = createSlice({
                 createdAt: new Date().toISOString(),
             };
         },
-         saveFragment: (state) => {
+        saveFragment: (state) => {
             if (state.currentFragment) {
                 state.confirmedFragment = state.currentFragment;
             }
@@ -49,7 +49,13 @@ const pdfSlice = createSlice({
     },
 });
 
-export const { setPdfData, setSelection, setFragment, saveFragment, setFragmentBase64, clearSelection } =
-    pdfSlice.actions;
+export const {
+    setPdfData,
+    setSelection,
+    setFragment,
+    saveFragment,
+    setFragmentBase64,
+    clearSelection,
+} = pdfSlice.actions;
 
 export default pdfSlice.reducer;

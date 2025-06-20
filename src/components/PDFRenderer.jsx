@@ -1,10 +1,10 @@
-// PDFRenderer.jsx
 import { useRef, useEffect, useState } from 'react';
 import * as pdfjs from 'pdfjs-dist/build/pdf';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { useDispatch } from 'react-redux';
 
 import { setFragment, clearSelection } from '../store/features/pdfSlice';
+
 import AreaSelector from './AreaSelector';
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -21,12 +21,11 @@ const PDFRenderer = ({ base64 }) => {
     const pdfDocRef = useRef(null);
 
     const cleanup = () => {
-        // Отменяем все задачи рендеринга
-        renderTasksRef.current.forEach(task => {
+        renderTasksRef.current.forEach((task) => {
             if (task && !task.cancelled) task.cancel();
         });
         renderTasksRef.current = [];
-        
+
         if (pdfDocRef.current) {
             pdfDocRef.current.destroy();
             pdfDocRef.current = null;
@@ -47,10 +46,13 @@ const PDFRenderer = ({ base64 }) => {
         const handleLoadPdf = async () => {
             await loadPdf();
         };
-        handleLoadPdf();
+
+        // Предотвращает ошибку множественного рендеринга на одном холсте в dev-разработке из-за двойного выполнения useEffect в режиме StrictMode
+        const breakForDev = setTimeout(() => handleLoadPdf(), 50);
 
         return () => {
             cleanup();
+            clearTimeout(breakForDev);
             canvasRefs.current = [];
         };
     }, [base64]);
@@ -86,13 +88,12 @@ const PDFRenderer = ({ base64 }) => {
             setPdfPages(pages);
             canvasRefs.current = new Array(pages.length).fill(null);
 
-            // Рендерим страницы после обновления DOM
             setTimeout(() => {
                 pages.forEach((pageObj, index) => {
                     renderPage(pageObj, index);
                 });
             }, 50);
-            
+
             if (isMountedRef.current) {
                 setError(null);
             }
@@ -112,9 +113,13 @@ const PDFRenderer = ({ base64 }) => {
         const canvas = canvasRefs.current[index];
         if (!canvas) return;
 
+        const scale = 1.5;
+        const viewport = pageObj.page.getViewport({ scale });
+
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
         const context = canvas.getContext('2d');
-        canvas.height = pageObj.viewport.height;
-        canvas.width = pageObj.viewport.width;
 
         context.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -123,7 +128,7 @@ const PDFRenderer = ({ base64 }) => {
                 canvasContext: context,
                 viewport: pageObj.viewport,
             });
-            
+
             renderTasksRef.current.push(renderTask);
             await renderTask.promise;
         } catch (err) {
@@ -133,9 +138,7 @@ const PDFRenderer = ({ base64 }) => {
         }
     };
 
-    // Обработка выделения области
     const handleAreaSelected = async (area, pageIndex) => {
-        console.log('Processing area:', area);
         const canvas = canvasRefs.current[pageIndex];
         if (!canvas || area.width <= 0 || area.height <= 0) {
             console.error('Invalid selection parameters');
@@ -143,18 +146,15 @@ const PDFRenderer = ({ base64 }) => {
         }
 
         try {
-            // Создаем временный canvas для фрагмента
             const fragmentCanvas = document.createElement('canvas');
             fragmentCanvas.width = Math.floor(area.width);
             fragmentCanvas.height = Math.floor(area.height);
 
             const ctx = fragmentCanvas.getContext('2d');
 
-            // Очищаем фон (белый вместо прозрачного)
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, fragmentCanvas.width, fragmentCanvas.height);
 
-            // Копируем выделенную область
             ctx.drawImage(
                 canvas,
                 Math.floor(area.x),
@@ -167,12 +167,9 @@ const PDFRenderer = ({ base64 }) => {
                 Math.floor(area.height)
             );
 
-            // Оптимизация: сжимаем изображение до 80% качества
             const base64 = fragmentCanvas.toDataURL('image/jpeg', 0.8);
             const isValid =
-                fragmentCanvas.width > 0 && 
-                fragmentCanvas.height > 0 && 
-                base64.length > 1000; // Минимальный размер base64
+                fragmentCanvas.width > 0 && fragmentCanvas.height > 0 && base64.length > 1000; // Минимальный размер base64
 
             if (isValid) {
                 dispatch(
@@ -212,7 +209,8 @@ const PDFRenderer = ({ base64 }) => {
                     <div key={index} className="relative mb-4">
                         <canvas
                             ref={(el) => (canvasRefs.current[index] = el)}
-                            className="border border-gray-300 w-full"
+                            className="border border-gray-300 w-full block my-0 mx-auto"
+                            // style={{ display: 'block', margin: '0 auto' }}
                         />
                         <AreaSelector
                             onSelectArea={(area) => handleAreaSelected(area, index)}

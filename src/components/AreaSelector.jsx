@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 const AreaSelector = ({ onSelectArea, disabled, canvasRef, pageIndex }) => {
-    const containerRef = useRef(null);
     const [startPoint, setStartPoint] = useState(null);
     const [endPoint, setEndPoint] = useState(null);
     const [isSelecting, setIsSelecting] = useState(false);
+    const [displayCoords, setDisplayCoords] = useState({ left: 0, top: 0, width: 0, height: 0 });
 
     const getAdjustedCoordinates = (clientX, clientY) => {
         const canvas = canvasRef.current[pageIndex];
@@ -34,6 +34,28 @@ const AreaSelector = ({ onSelectArea, disabled, canvasRef, pageIndex }) => {
 
         const { x, y } = getAdjustedCoordinates(e.clientX, e.clientY);
         setEndPoint({ x, y });
+
+        updateDisplayCoords(e.clientX, e.clientY);
+    };
+
+    const updateDisplayCoords = (clientX, clientY) => {
+        const canvas = canvasRef.current[pageIndex];
+        if (!canvas || !startPoint) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.min(startPoint.x, (clientX - rect.left) * (canvas.width / rect.width));
+        const y = Math.min(startPoint.y, (clientY - rect.top) * (canvas.height / rect.height));
+        const width = Math.abs((clientX - rect.left) * (canvas.width / rect.width) - startPoint.x);
+        const height = Math.abs(
+            (clientY - rect.top) * (canvas.height / rect.height) - startPoint.y
+        );
+
+        setDisplayCoords({
+            left: (x * rect.width) / canvas.width + rect.left,
+            top: (y * rect.height) / canvas.height + rect.top,
+            width: (width * rect.width) / canvas.width,
+            height: (height * rect.height) / canvas.height,
+        });
     };
 
     const handleMouseUp = () => {
@@ -44,24 +66,20 @@ const AreaSelector = ({ onSelectArea, disabled, canvasRef, pageIndex }) => {
         const width = Math.abs(endPoint.x - startPoint.x);
         const height = Math.abs(endPoint.y - startPoint.y);
 
-        console.log('Final selection (canvas coords):', { x, y, width, height });
-
         if (width > 10 && height > 10) {
             onSelectArea({
                 x,
                 y,
                 width,
                 height,
-                pageX: Math.min(startPoint.x, endPoint.x),
-                pageY: Math.min(startPoint.y, endPoint.y),
+                pageIndex,
             });
-        } else {
-            console.warn('Selection too small:', { width, height });
         }
 
         setIsSelecting(false);
         setStartPoint(null);
         setEndPoint(null);
+        setDisplayCoords({ left: 0, top: 0, width: 0, height: 0 });
     };
 
     useEffect(() => {
@@ -74,25 +92,25 @@ const AreaSelector = ({ onSelectArea, disabled, canvasRef, pageIndex }) => {
     }, [isSelecting, startPoint, endPoint]);
 
     return (
-        <div>
+        <>
             <div
                 className={`absolute inset-0 ${disabled ? 'cursor-not-allowed' : 'cursor-crosshair'}`}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
             />
 
-            {isSelecting && startPoint && endPoint && (
+            {isSelecting && (
                 <div
-                    className="absolute border-2 border-red-500 bg-red-500 bg-opacity-10 pointer-events-none"
+                    className="fixed border-2 border-red-500 bg-red-500 bg-opacity-10 pointer-events-none"
                     style={{
-                        left: `${Math.min(startPoint.x, endPoint.x)}px`,
-                        top: `${Math.min(startPoint.y, endPoint.y)}px`,
-                        width: `${Math.abs(endPoint.x - startPoint.x)}px`,
-                        height: `${Math.abs(endPoint.y - startPoint.y)}px`,
+                        left: `${displayCoords.left}px`,
+                        top: `${displayCoords.top}px`,
+                        width: `${displayCoords.width}px`,
+                        height: `${displayCoords.height}px`,
                     }}
                 />
             )}
-        </div>
+        </>
     );
 };
 
