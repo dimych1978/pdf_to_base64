@@ -4,8 +4,6 @@ const pdfSlice = createSlice({
     name: 'pdf',
     initialState: {
         pdfBase64: null,
-        selection: null,
-        fragmentBase64: null,
         currentFragment: null,
         confirmedFragment: null,
     },
@@ -14,9 +12,6 @@ const pdfSlice = createSlice({
             state.pdfBase64 = action.payload;
             state.currentFragment = null;
             state.confirmedFragment = null;
-        },
-        setSelection: (state, action) => {
-            state.selection = action.payload;
         },
         setFragment(state, action) {
             const { base64, coordinates, dimensions } = action.payload;
@@ -38,9 +33,6 @@ const pdfSlice = createSlice({
                 state.confirmedFragment = state.currentFragment;
             }
         },
-        setFragmentBase64: (state, action) => {
-            state.fragmentBase64 = action.payload;
-        },
         clearSelection: (state) => {
             state.selection = null;
             state.fragmentBase64 = null;
@@ -51,10 +43,8 @@ const pdfSlice = createSlice({
 
 export const {
     setPdfData,
-    setSelection,
     setFragment,
     saveFragment,
-    setFragmentBase64,
     clearSelection,
 } = pdfSlice.actions;
 

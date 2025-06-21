@@ -1,17 +1,21 @@
 export const fetchPdfByFileName = async (fileName) => {
-    try {
-        const response = await fetch(`/pdf/${fileName}`);
+    const response = await fetch(`/pdf/${fileName}`);
 
-        if (!response.ok) throw new Error('PDF not found');
+    if (!response.ok) throw new Error(`Ошибка: ${response.status}: ${response.statusText}`);
 
-        const blob = await response.blob();
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.readAsDataURL(blob);
-        });
-    } catch (error) {
-        console.error('Error loading PDF:', error);
-        return null;
+    // Поскольку вместо сервера используется запрос к файлу, лежащему в папке public, проверяем на соответствие файла типу pdf
+    const contentType = response.headers.get('content-type');
+    if (!contentType.includes('application/pdf')) {
+        throw new Error('Файл не является PDF');
     }
+
+    const blob = await response.blob();
+    if (blob.size < 100) {
+        throw new Error('Файл не найден или пустой');
+    }
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+    });
 };

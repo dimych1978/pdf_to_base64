@@ -10,16 +10,23 @@ import AreaSelector from './AreaSelector';
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 const PDFRenderer = ({ base64 }) => {
-    const canvasRefs = useRef([]);
+    const dispatch = useDispatch();
+
     const [error, setError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [pdfPages, setPdfPages] = useState([]);
-    const isMountedRef = useRef(true);
-    const dispatch = useDispatch();
 
+    // Ссылки на canvas элементы для каждой страницы
+    const canvasRefs = useRef([]);
+
+    // Ссылки на задачи рендеринга и PDF документ
     const renderTasksRef = useRef([]);
     const pdfDocRef = useRef(null);
 
+    // Флаг монтирования компонента (для избежания обновлений после размонтирования)
+    const isMountedRef = useRef(true);
+
+    // Функция очистки
     const cleanup = () => {
         renderTasksRef.current.forEach((task) => {
             if (task && !task.cancelled) task.cancel();
@@ -32,6 +39,7 @@ const PDFRenderer = ({ base64 }) => {
         }
     };
 
+    // Эффект для очистки при размонтировании
     useEffect(() => {
         isMountedRef.current = true;
         return () => {
@@ -40,6 +48,7 @@ const PDFRenderer = ({ base64 }) => {
         };
     }, []);
 
+    // Загрузка PDF при изменении пропса
     useEffect(() => {
         if (!base64) return;
 
@@ -57,6 +66,13 @@ const PDFRenderer = ({ base64 }) => {
         };
     }, [base64]);
 
+    /**
+     * Основная функция загрузки и обработки PDF
+     * 1. Декодирует пропс в бинарные данные
+     * 2. Загружает PDF документ
+     * 3. Извлекает страницы
+     * 4. Рендерит страницы на canvas
+     */
     const loadPdf = async () => {
         if (!isMountedRef.current) return;
         setIsLoading(true);
@@ -109,6 +125,11 @@ const PDFRenderer = ({ base64 }) => {
         }
     };
 
+    /**
+     * Рендерит страницу PDF на canvas
+     * pageObj - объект страницы PDF
+     * index - индекс страницы
+     */
     const renderPage = async (pageObj, index) => {
         const canvas = canvasRefs.current[index];
         if (!canvas) return;
@@ -138,6 +159,13 @@ const PDFRenderer = ({ base64 }) => {
         }
     };
 
+    /**
+     * Обработка выделения области на странице PDF
+     * 1. Создает временный canvas
+     * 2. Копирует выделенную область
+     * 3. Конвертирует в base64
+     * 4. Сохраняет фрагмент в Redux
+     */
     const handleAreaSelected = async (area, pageIndex) => {
         const canvas = canvasRefs.current[pageIndex];
         if (!canvas || area.width <= 0 || area.height <= 0) {

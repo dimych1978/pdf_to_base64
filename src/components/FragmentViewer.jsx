@@ -3,6 +3,12 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { saveFragment } from '../store/features/pdfSlice';
 
+/**
+ * Компонент для просмотра выделенных фрагментов
+ * - Отображает предпросмотр фрагмента
+ * - Предоставляет кнопку для подтверждения фрагмента
+ * - Отображает подтвержденный фрагмент
+ */
 const FragmentViewer = () => {
     const dispatch = useDispatch();
     const fragment = useSelector((state) => state.pdf.currentFragment);
@@ -12,6 +18,7 @@ const FragmentViewer = () => {
         if (typeof str !== 'string') return false;
         return /^data:image\/(png|jpeg|jpg);base64,[a-zA-Z0-9+/]+={0,2}$/.test(str);
     };
+    
     const handleApply = () => {
         if (fragment) {
             dispatch(saveFragment());
