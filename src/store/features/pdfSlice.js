@@ -1,47 +1,51 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-const initialState = {
-  file: null, // исходный файл PDF
-  document: null, // загруженный документ pdf.js
-  pages: [], // массив страниц
-  currentPage: 1, // текущая страница
-  selections: [], // массив выделенных областей (изначально пустой)
-  status: 'idle', // статус загрузки: 'idle' | 'loading' | 'succeeded' | 'failed'
-  error: null,
-};
+const pdfSlice = createSlice({
+    name: 'pdf',
+    initialState: {
+        pdfBase64: null,
+        currentFragment: null,
+        confirmedFragment: null,
+    },
+    reducers: {
+        setPdfData: (state, action) => {
+            state.pdfBase64 = action.payload;
+            state.currentFragment = null;
+            state.confirmedFragment = null;
+        },
+        setFragment(state, action) {
+            const { base64, coordinates, dimensions } = action.payload;
 
-export const pdfSlice = createSlice({
-  name: 'pdf',
-  initialState,
-  reducers: {
-    setPDFFile(state, action) {
-      state.file = action.payload;
-      state.document = null;
-      state.status = 'loading';
+            if (!base64 || !coordinates || !dimensions) {
+                console.error('Invalid payload for setFragment:', action.payload);
+                return;
+            }
+
+            state.currentFragment = {
+                base64: base64.startsWith('data:image/') ? base64 : null,
+                coordinates,
+                dimensions,
+                createdAt: new Date().toISOString(),
+            };
+        },
+        saveFragment: (state) => {
+            if (state.currentFragment) {
+                state.confirmedFragment = state.currentFragment;
+            }
+        },
+        clearSelection: (state) => {
+            state.selection = null;
+            state.fragmentBase64 = null;
+            state.currentFragment = null;
+        },
     },
-    setPDFDocument(state, action) {
-      state.document = action.payload;
-      state.status = 'succeeded';
-    },
-    addSelection(state, action) {
-      state.selections.push({
-        id: Date.now,
-        page: state.currentPage,
-        coordinates: action.payload.coordinates,
-        base64: action.payload.base64 || null,
-      });
-    },
-    removeSelection(state, action) {
-        state.selections = state.selections.filter(item => item.id !== action.payload)
-    },
-    stateCurrentPage(state, action) {
-        state.currentPage = action.payload
-    },
-    resetSelection(state) {
-        state.selections = []
-    }
-  },
 });
 
-export const {setPDFFile, setPDFDocument, addSelection, removeSelection, stateCurrentPage, resetSelection} = pdfSlice.actions
+export const {
+    setPdfData,
+    setFragment,
+    saveFragment,
+    clearSelection,
+} = pdfSlice.actions;
+
 export default pdfSlice.reducer;

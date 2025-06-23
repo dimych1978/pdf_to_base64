@@ -1,90 +1,126 @@
-import { useRef, useEffect } from 'react';
-import CanvasJS from '@canvasjs/charts';
+import { useState, useEffect } from 'react';
 
-function AreaSelector({ pdfDoc }) {
-  const chartContainerRef = useRef(null);
-  const chartRef = useRef(null);
-  const selection = useRef(null);
+/**
+ * Компонент для выделения областей на странице PDF
+ * - Обрабатывает события мыши
+ * - Рассчитывает координаты выделения
+ * - Отображает рамку выделения
+ */
+const AreaSelector = ({ onSelectArea, disabled, canvasRef, pageIndex }) => {
+    const [startPoint, setStartPoint] = useState(null); // начальная точка выделения
+    const [endPoint, setEndPoint] = useState(null); //конечная точка выделения
+    const [isSelecting, setIsSelecting] = useState(false); //флаг завершенного выделения
+    const [displayCoords, setDisplayCoords] = useState({ left: 0, top: 0, width: 0, height: 0 }); //координаты для отображения рамки
 
-  // Инициализация канваса
-  useEffect(() => {
-    if (!pdfDoc || !chartContainerRef.current) return;
+    // функция преобразования координат мыши в координаты canvas
+    const getAdjustedCoordinates = (clientX, clientY) => {
+        const canvas = canvasRef.current[pageIndex];
+        if (!canvas) return { x: 0, y: 0 };
 
-    const chart = new CanvasJS.Chart(chartContainerRef.current, {
-      interactivityEnabled: true,
-      axisX: { minimum: 0, maximum: 100 }, // Проценты от ширины
-      axisY: { minimum: 0, maximum: 100 }, // Проценты от высоты
-      data: [{ type: "scatter", dataPoints: [] }],
-    });
-    chartRef.current = chart;
-    chart.render();
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
 
-    // Обработка событий
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY,
+        };
+    };
+
     const handleMouseDown = (e) => {
-      const rect = chartContainerRef.current.getBoundingClientRect();
-      selection.current = {
-        x1: (e.clientX - rect.left) / rect.width * 100,
-        y1: (e.clientY - rect.top) / rect.height * 100,
-        x2: (e.clientX - rect.left) / rect.width * 100,
-        y2: (e.clientY - rect.top) / rect.height * 100,
-      };
+        if (disabled) return;
+
+        const { x, y } = getAdjustedCoordinates(e.clientX, e.clientY);
+        setStartPoint({ x, y });
+        setEndPoint({ x, y });
+        setIsSelecting(true);
     };
 
     const handleMouseMove = (e) => {
-      if (!selection.current) return;
-      const rect = chartContainerRef.current.getBoundingClientRect();
-      selection.current.x2 = (e.clientX - rect.left) / rect.width * 100;
-      selection.current.y2 = (e.clientY - rect.top) / rect.height * 100;
-      updateSelectionBox();
+        if (!isSelecting) return;
+
+        const { x, y } = getAdjustedCoordinates(e.clientX, e.clientY);
+        setEndPoint({ x, y });
+
+        updateDisplayCoords(e.clientX, e.clientY);
     };
 
-    chartContainerRef.current.addEventListener('mousedown', handleMouseDown);
-    chartContainerRef.current.addEventListener('mousemove', handleMouseMove);
-    chartContainerRef.current.addEventListener('mouseup', () => {
-      if (selection.current) {
-        console.log("Выделенная область (%):", selection.current);
-        selection.current = null;
-        chartRef.current.render(); // Очищаем выделение
-      }
-    });
+    const handleMouseUp = () => {
+        if (!isSelecting || !startPoint || !endPoint) return;
 
-    return () => {
-      chartContainerRef.current?.removeEventListener('mousedown', handleMouseDown);
-      chartContainerRef.current?.removeEventListener('mousemove', handleMouseMove);
+        const x = Math.min(startPoint.x, endPoint.x);
+        const y = Math.min(startPoint.y, endPoint.y);
+        const width = Math.abs(endPoint.x - startPoint.x);
+        const height = Math.abs(endPoint.y - startPoint.y);
+
+        if (width > 10 && height > 10) {
+            onSelectArea({
+                x,
+                y,
+                width,
+                height,
+                pageIndex,
+            });
+        }
+
+        setIsSelecting(false);
+        setStartPoint(null);
+        setEndPoint(null);
+        setDisplayCoords({ left: 0, top: 0, width: 0, height: 0 });
     };
-  }, [pdfDoc]);
 
-  // Рисование прямоугольника выделения
-  const updateSelectionBox = () => {
-    if (!selection.current || !chartRef.current) return;
-    
-    const { x1, y1, x2, y2 } = selection.current;
-    chartRef.current.options.data = [{
-      type: "scatter",
-      dataPoints: [],
-      selectionRectangle: {
-        enabled: true,
-        xMin: Math.min(x1, x2),
-        xMax: Math.max(x1, x2),
-        yMin: Math.min(y1, y2),
-        yMax: Math.max(y1, y2),
-        color: "rgba(255, 0, 0, 0.3)"
-      }
-    }];
-    chartRef.current.render();
-  };
+    // Функция преобразования координат canvas в экранные координаты для отображения рамки выделения
+    const updateDisplayCoords = (clientX, clientY) => {
+        const canvas = canvasRef.current[pageIndex];
+        if (!canvas || !startPoint) return;
 
-  return (
-    <div 
-      ref={chartContainerRef} 
-      style={{ 
-        width: '100%', 
-        height: '600px',
-        border: '1px solid #ccc',
-        position: 'relative'
-      }}
-    />
-  );
-}
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.min(startPoint.x, (clientX - rect.left) * (canvas.width / rect.width));
+        const y = Math.min(startPoint.y, (clientY - rect.top) * (canvas.height / rect.height));
+        const width = Math.abs((clientX - rect.left) * (canvas.width / rect.width) - startPoint.x);
+        const height = Math.abs(
+            (clientY - rect.top) * (canvas.height / rect.height) - startPoint.y
+        );
 
-export default AreaSelector
+        setDisplayCoords({
+            left: (x * rect.width) / canvas.width + rect.left,
+            top: (y * rect.height) / canvas.height + rect.top,
+            width: (width * rect.width) / canvas.width,
+            height: (height * rect.height) / canvas.height,
+        });
+    };
+
+    // Глобальный обработчик отпускания мыши для гарантированной обработки в случае выхода курсора за пределы canvas
+    useEffect(() => {
+        const handleMouseUpGlobal = () => {
+            if (isSelecting) handleMouseUp();
+        };
+
+        window.addEventListener('mouseup', handleMouseUpGlobal);
+        return () => window.removeEventListener('mouseup', handleMouseUpGlobal);
+    }, [isSelecting, startPoint, endPoint]);
+
+    return (
+        <>
+            <div
+                className={`absolute inset-0 ${disabled ? 'cursor-not-allowed' : 'cursor-crosshair'}`}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+            />
+
+            {isSelecting && (
+                <div
+                    className="fixed border-2 border-red-500 bg-red-500 bg-opacity-10 pointer-events-none"
+                    style={{
+                        left: `${displayCoords.left}px`,
+                        top: `${displayCoords.top}px`,
+                        width: `${displayCoords.width}px`,
+                        height: `${displayCoords.height}px`,
+                    }}
+                />
+            )}
+        </>
+    );
+};
+
+export default AreaSelector;
