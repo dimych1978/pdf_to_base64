@@ -9,7 +9,7 @@ import AreaSelector from './AreaSelector';
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-const PDFRenderer = ({ base64 }) => {
+const PDFRenderer = ({ pdfData }) => {
     const dispatch = useDispatch();
 
     const [error, setError] = useState(null);
@@ -50,7 +50,7 @@ const PDFRenderer = ({ base64 }) => {
 
     // Загрузка PDF при изменении пропса
     useEffect(() => {
-        if (!base64) return;
+        if (!pdfData) return;
 
         const handleLoadPdf = async () => {
             await loadPdf();
@@ -64,7 +64,7 @@ const PDFRenderer = ({ base64 }) => {
             clearTimeout(breakForDev);
             canvasRefs.current = [];
         };
-    }, [base64]);
+    }, [pdfData]);
 
     /**
      * Основная функция загрузки и обработки PDF
@@ -81,22 +81,14 @@ const PDFRenderer = ({ base64 }) => {
         try {
             cleanup();
 
-            const base64Data = base64.split(',')[1] || base64;
-            const binaryString = atob(base64Data);
-            const bytes = new Uint8Array(binaryString.length);
+            const loadingTask = pdfjs.getDocument({ url: pdfData });
+            const pdfDoc = await loadingTask.promise;
+            pdfDocRef.current = pdfDoc;
 
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-
-            const loadingTask = pdfjs.getDocument({ data: bytes });
-            const pdf = await loadingTask.promise;
-            pdfDocRef.current = pdf;
-
-            const numPages = pdf.numPages;
+            const numPages = pdfDoc.numPages;
             const pages = [];
             for (let i = 1; i <= numPages; i++) {
-                const page = await pdf.getPage(i);
+                const page = await pdfDoc.getPage(i);
                 const vp = page.getViewport({ scale: 1.5 });
                 pages.push({ page, viewport: vp });
             }
@@ -104,6 +96,7 @@ const PDFRenderer = ({ base64 }) => {
             setPdfPages(pages);
             canvasRefs.current = new Array(pages.length).fill(null);
 
+             // Рендерим страницы после обновления DOM
             setTimeout(() => {
                 pages.forEach((pageObj, index) => {
                     renderPage(pageObj, index);
@@ -117,7 +110,7 @@ const PDFRenderer = ({ base64 }) => {
             if (isMountedRef.current) {
                 if (err.name !== 'RenderingCancelledException') {
                     console.error('PDF rendering error:', err);
-                    setError('Ошибка загрузки PDF');
+                    setError('Ошибка загрузки PDF' + err.message);
                 }
             }
         } finally {
