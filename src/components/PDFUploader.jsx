@@ -12,7 +12,7 @@ const PDFUploader = () => {
 
     const handleLoadFromApi = async () => {
         try {
-            if (!fileName) {
+            if (!fileName.trim()) {
                 setError('Введите имя файла');
                 return;
             }
@@ -24,7 +24,7 @@ const PDFUploader = () => {
             console.error(error);
         }
     };
-    console.log(error);
+
     return (
         <div className="flex gap-2 mb-4">
             <input

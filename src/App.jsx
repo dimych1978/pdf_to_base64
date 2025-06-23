@@ -5,7 +5,7 @@ import PDFRenderer from './components/PDFRenderer';
 import FragmentViewer from './components/FragmentViewer';
 
 function App() {
-    const pdfBase64 = useSelector((state) => state.pdf.pdfBase64);
+    const pdfUrl = useSelector((state) => state.pdf.pdfUrl);
     const confirmedFragment = useSelector((state) => state.pdf.confirmedFragment);
 
     return (
@@ -19,8 +19,8 @@ function App() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="border border-gray-300 rounded-lg p-4">
-                    {pdfBase64 ? (
-                        <PDFRenderer base64={pdfBase64} />
+                    {pdfUrl ? (
+                        <PDFRenderer pdfData={pdfUrl} />
                     ) : (
                         <div className="flex items-center justify-center h-64 text-gray-500">
                             Загрузите PDF файл
