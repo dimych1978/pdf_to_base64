@@ -13,9 +13,5 @@ export const fetchPdfByFileName = async (fileName) => {
     if (blob.size < 100) {
         throw new Error('Файл не найден или пустой');
     }
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.readAsDataURL(blob);
-    });
+    return URL.createObjectURL(blob);
 };

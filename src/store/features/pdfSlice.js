@@ -3,13 +3,14 @@ import { createSlice } from '@reduxjs/toolkit';
 const pdfSlice = createSlice({
     name: 'pdf',
     initialState: {
-        pdfBase64: null,
+        pdfUrl: null,
         currentFragment: null,
         confirmedFragment: null,
     },
     reducers: {
         setPdfData: (state, action) => {
-            state.pdfBase64 = action.payload;
+            if (state.pdfUrl) URL.revokeObjectURL(state.pdfUrl);
+            state.pdfUrl = action.payload;
             state.currentFragment = null;
             state.confirmedFragment = null;
         },
@@ -41,11 +42,6 @@ const pdfSlice = createSlice({
     },
 });
 
-export const {
-    setPdfData,
-    setFragment,
-    saveFragment,
-    clearSelection,
-} = pdfSlice.actions;
+export const { setPdfData, setFragment, saveFragment, clearSelection } = pdfSlice.actions;
 
 export default pdfSlice.reducer;
