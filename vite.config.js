@@ -7,4 +7,18 @@ export default defineConfig({
     css: {
         postcss: './postcss.config.js', // Подключаем PostCSS конфигурацию
     },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    pdfjs: ['pdfjs-dist'],
+                },
+            },
+        },
+    },
+    base: '/pdf_to_base64/',
+    build: {
+        outDir: 'dist',
+        assetsDir: './', // Важно для GitHub Pages
+    },
 });
