@@ -34,14 +34,18 @@ const pdfSlice = createSlice({
                 state.confirmedFragment = state.currentFragment;
             }
         },
-        clearSelection: (state) => {
-            state.selection = null;
-            state.fragmentBase64 = null;
+        clearCurrentFragment: (state) => {
             state.currentFragment = null;
+        },
+        clearSelection: (state) => {
+            if (state.pdfUrl) URL.revokeObjectURL(state.pdfUrl);
+            state.pdfUrl = null;
+            state.currentFragment = null;
+            state.confirmedFragment = null;
         },
     },
 });
 
-export const { setPdfData, setFragment, saveFragment, clearSelection } = pdfSlice.actions;
+export const { setPdfData, setFragment, saveFragment, clearCurrentFragment, clearSelection } = pdfSlice.actions;
 
 export default pdfSlice.reducer;

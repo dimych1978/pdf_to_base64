@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useDispatch } from 'react-redux';
 
 import { fetchPdfByFileName } from '../api/api';
-import { setPdfData } from '../store/features/pdfSlice';
+import { clearSelection, setPdfData } from '../store/features/pdfSlice';
 
 /* Компонент загрузки PDF-файла по имени через api */
 const PDFUploader = () => {
@@ -16,9 +16,12 @@ const PDFUploader = () => {
                 setError('Введите имя файла');
                 return;
             }
+
+            dispatch(clearSelection());
             setError('');
+            
             const pdfData = await fetchPdfByFileName(fileName);
-                dispatch(setPdfData(pdfData));
+            dispatch(setPdfData(pdfData));
         } catch (error) {
             setError(`Ошибка загрузки файла: ${error.message}`);
             console.error(error);
@@ -43,9 +46,7 @@ const PDFUploader = () => {
             >
                 Загрузить PDF
             </button>
-            {error && <div className="text-red-500 mt-2 p-2 bg-red-50 rounded-md">
-                    {error}
-                </div>}
+            {error && <div className="text-red-500 mt-2 p-2 bg-red-50 rounded-md">{error}</div>}
         </div>
     );
 };

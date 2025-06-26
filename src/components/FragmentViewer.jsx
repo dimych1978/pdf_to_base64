@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
-import { saveFragment } from '../store/features/pdfSlice';
+import { clearCurrentFragment, saveFragment } from '../store/features/pdfSlice';
 
 /**
  * Компонент для просмотра выделенных фрагментов
@@ -11,8 +10,7 @@ import { saveFragment } from '../store/features/pdfSlice';
  */
 const FragmentViewer = () => {
     const dispatch = useDispatch();
-    const fragment = useSelector((state) => state.pdf.currentFragment);
-    const [confirmedFragment, setConfirmedFragment] = useState(null);
+    const {currentFragment, confirmedFragment} = useSelector((state) => state.pdf);
 
     const isValidBase64 = (str) => {
         if (typeof str !== 'string') return false;
@@ -20,37 +18,41 @@ const FragmentViewer = () => {
     };
     
     const handleApply = () => {
-        if (fragment) {
+        console.log('fragment', currentFragment, confirmedFragment)
+        
+        if (currentFragment) {
             dispatch(saveFragment());
-            setConfirmedFragment(fragment);
+            dispatch(clearCurrentFragment());
         }
     };
 
     console.log('Base64 validation:', {
-        isString: typeof fragment?.base64 === 'string',
-        isImage: fragment?.base64?.startsWith('data:image/'),
-        isValid: isValidBase64(fragment?.base64),
-        length: fragment?.base64?.length,
+        isString: typeof confirmedFragment?.base64 === 'string',
+        isImage: confirmedFragment?.base64?.startsWith('data:image/'),
+        isValid: isValidBase64(confirmedFragment?.base64),
+        length: confirmedFragment?.base64?.length,
     });
-    return (
-        <div className="fragment-viewer">
-            {confirmedFragment ? (
-                <img src={confirmedFragment.base64} alt="Confirmed fragment" />
-            ) : fragment ? (
-                <div>
-                    <img src={fragment.base64} alt="Selected fragment" />
-                    <button
-                        onClick={handleApply}
-                        className="mt-4 bg-blue-500 text-white px-4 py-2 rounded"
-                    >
-                        Применить
-                    </button>
-                </div>
-            ) : (
-                <div>No fragment selected</div>
-            )}
+return (
+        <div className="flex flex-col gap-4">
+            <div className="border p-4">
+                {currentFragment?.base64 ? (
+                    <img 
+                        src={currentFragment.base64} 
+                        alt="Current Fragment"
+                        className="max-w-full h-auto"
+                    />
+                ) : (
+                    <p>Выделите фрагмент в PDF</p>
+                )}
+            </div>
+            <button 
+                onClick={handleApply}
+                disabled={!currentFragment}
+                className="bg-green-500 text-white px-4 py-2 rounded disabled:bg-gray-300"
+            >
+                Применить фрагмент
+            </button>
         </div>
-    );
-};
+    );};
 
 export default FragmentViewer;

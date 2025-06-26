@@ -3,7 +3,7 @@ import * as pdfjs from 'pdfjs-dist/build/pdf';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { useDispatch } from 'react-redux';
 
-import { setFragment, clearSelection } from '../store/features/pdfSlice';
+import { setFragment } from '../store/features/pdfSlice';
 
 import AreaSelector from './AreaSelector';
 
@@ -76,7 +76,7 @@ const PDFRenderer = ({ pdfData }) => {
     const loadPdf = async () => {
         if (!isMountedRef.current) return;
         setIsLoading(true);
-        dispatch(clearSelection());
+        // dispatch(clearSelection());
 
         try {
             cleanup();
@@ -127,7 +127,7 @@ const PDFRenderer = ({ pdfData }) => {
         const canvas = canvasRefs.current[index];
         if (!canvas) return;
 
-        const scale = 1.5;
+        const scale = Math.min(1.5, window.innerWidth / viewport.width * 0.8) ;
         const viewport = pageObj.page.getViewport({ scale });
 
         canvas.height = viewport.height;
@@ -231,7 +231,6 @@ const PDFRenderer = ({ pdfData }) => {
                         <canvas
                             ref={(el) => (canvasRefs.current[index] = el)}
                             className="border border-gray-300 w-full block my-0 mx-auto"
-                            // style={{ display: 'block', margin: '0 auto' }}
                         />
                         <AreaSelector
                             onSelectArea={(area) => handleAreaSelected(area, index)}
