@@ -19,7 +19,7 @@ const PDFUploader = () => {
 
             dispatch(clearSelection());
             setError('');
-            
+
             const pdfData = await fetchPdfByFileName(fileName);
             dispatch(setPdfData(pdfData));
         } catch (error) {

@@ -46,6 +46,7 @@ const pdfSlice = createSlice({
     },
 });
 
-export const { setPdfData, setFragment, saveFragment, clearCurrentFragment, clearSelection } = pdfSlice.actions;
+export const { setPdfData, setFragment, saveFragment, clearCurrentFragment, clearSelection } =
+    pdfSlice.actions;
 
 export default pdfSlice.reducer;

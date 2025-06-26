@@ -10,16 +10,14 @@ import { clearCurrentFragment, saveFragment } from '../store/features/pdfSlice';
  */
 const FragmentViewer = () => {
     const dispatch = useDispatch();
-    const {currentFragment, confirmedFragment} = useSelector((state) => state.pdf);
+    const { currentFragment, confirmedFragment } = useSelector((state) => state.pdf);
 
     const isValidBase64 = (str) => {
         if (typeof str !== 'string') return false;
         return /^data:image\/(png|jpeg|jpg);base64,[a-zA-Z0-9+/]+={0,2}$/.test(str);
     };
-    
+
     const handleApply = () => {
-        console.log('fragment', currentFragment, confirmedFragment)
-        
         if (currentFragment) {
             dispatch(saveFragment());
             dispatch(clearCurrentFragment());
@@ -32,12 +30,12 @@ const FragmentViewer = () => {
         isValid: isValidBase64(confirmedFragment?.base64),
         length: confirmedFragment?.base64?.length,
     });
-return (
+    return (
         <div className="flex flex-col gap-4">
             <div className="border p-4">
                 {currentFragment?.base64 ? (
-                    <img 
-                        src={currentFragment.base64} 
+                    <img
+                        src={currentFragment.base64}
                         alt="Current Fragment"
                         className="max-w-full h-auto"
                     />
@@ -45,7 +43,7 @@ return (
                     <p>Выделите фрагмент в PDF</p>
                 )}
             </div>
-            <button 
+            <button
                 onClick={handleApply}
                 disabled={!currentFragment}
                 className="bg-green-500 text-white px-4 py-2 rounded disabled:bg-gray-300"
@@ -53,6 +51,7 @@ return (
                 Применить фрагмент
             </button>
         </div>
-    );};
+    );
+};
 
 export default FragmentViewer;

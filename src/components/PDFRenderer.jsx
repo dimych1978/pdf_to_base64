@@ -96,7 +96,7 @@ const PDFRenderer = ({ pdfData }) => {
             setPdfPages(pages);
             canvasRefs.current = new Array(pages.length).fill(null);
 
-             // Рендерим страницы после обновления DOM
+            // Рендерим страницы после обновления DOM
             setTimeout(() => {
                 pages.forEach((pageObj, index) => {
                     renderPage(pageObj, index);
@@ -127,7 +127,7 @@ const PDFRenderer = ({ pdfData }) => {
         const canvas = canvasRefs.current[index];
         if (!canvas) return;
 
-        const scale = Math.min(1.5, window.innerWidth / viewport.width * 0.8) ;
+        const scale = 1.5;
         const viewport = pageObj.page.getViewport({ scale });
 
         canvas.height = viewport.height;
